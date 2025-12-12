@@ -1,0 +1,49 @@
+# API Dockerfile
+FROM node:18-alpine AS base
+
+# Install dependencies
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN npm ci
+
+# Build
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Generate Prisma Client
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+
+RUN npm run build --workspace=@naturalweb/api
+
+# Production
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 apiuser
+
+# Install Playwright dependencies
+RUN npk playwright install-deps
+
+COPY --from=builder --chown=apiuser:nodejs /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=apiuser:nodejs /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder --chown=apiuser:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=apiuser:nodejs /app/package.json ./
+
+USER apiuser
+
+EXPOSE 3001
+
+ENV PORT 3001
+
+CMD ["node", "apps/api/dist/index.js"]

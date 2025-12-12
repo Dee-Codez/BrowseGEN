@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: naturalweb
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: naturalweb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://naturalweb:password@postgres:5432/naturalweb
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PORT=3001
+    depends_on:
+      - postgres
+    volumes:
+      - ./apps/api/.env:/app/.env
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:3001
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

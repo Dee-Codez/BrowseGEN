@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Metric {
+  id             String   @id @default(cuid())
+  command        String
+  url            String?
+  interpretation String?  @db.Text
+  success        Boolean  @default(true)
+  error          String?  @db.Text
+  timestamp      DateTime @default(now())
+  
+  @@index([timestamp])
+  @@index([url])
+  @@index([success])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  commands  Command[]
+}
+
+model Command {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  command     String   @db.Text
+  url         String?
+  result      String?  @db.Text
+  success     Boolean  @default(true)
+  executionTime Int?   // in milliseconds
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
+}

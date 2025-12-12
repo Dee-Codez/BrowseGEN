@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NaturalWeb</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🌐 NaturalWeb</h1>
+      <p>Natural Language Commands</p>
+    </div>
+
+    <div class="command-section">
+      <textarea 
+        id="commandInput" 
+        placeholder="e.g., 'Click on the login button' or 'Fill the search box with JavaScript'"
+        rows="4"
+      ></textarea>
+      
+      <button id="executeBtn" class="btn-primary">
+        <span id="btnText">Execute</span>
+        <span id="btnLoader" class="loader" style="display: none;"></span>
+      </button>
+    </div>
+
+    <div id="result" class="result" style="display: none;"></div>
+
+    <div class="examples">
+      <h3>Example Commands:</h3>
+      <ul>
+        <li>"Click on the sign in button"</li>
+        <li>"Fill the email field with test@example.com"</li>
+        <li>"Scroll to the bottom of the page"</li>
+        <li>"Extract all product prices"</li>
+      </ul>
+    </div>
+
+    <div class="footer">
+      <a href="#" id="dashboardLink">View Dashboard</a>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
