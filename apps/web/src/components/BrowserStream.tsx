@@ -9,7 +9,7 @@ interface BrowserStreamProps {
 }
 
 interface ActionEvent {
-  type: 'action' | 'screenshot' | 'log' | 'complete' | 'error';
+  type: 'action' | 'screenshot' | 'log' | 'complete' | 'error' | 'context-update';
   sessionId: string;
   timestamp: string;
   data: any;
@@ -18,6 +18,7 @@ interface ActionEvent {
 export default function BrowserStream({ sessionId, debugUrl, wsUrl }: BrowserStreamProps) {
   const [logs, setLogs] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
+  const [currentContext, setCurrentContext] = useState<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -43,6 +44,10 @@ export default function BrowserStream({ sessionId, debugUrl, wsUrl }: BrowserStr
             break;
           case 'log':
             addLog(`📝 ${message.data.message}`);
+            break;
+          case 'context-update':
+            setCurrentContext(message.data);
+            addLog(`🔄 Context updated: ${message.data.title || message.data.url}`);
             break;
           case 'complete':
             addLog(`✅ Complete: ${JSON.stringify(message.data)}`);
@@ -84,8 +89,15 @@ export default function BrowserStream({ sessionId, debugUrl, wsUrl }: BrowserStr
       {/* Browser Stream Display */}
       <div className="flex-1 bg-gray-900 rounded-lg overflow-hidden relative">
         {debugUrl && (
-          <div className="absolute top-2 left-2 z-10 bg-black/80 text-white px-3 py-1 rounded text-sm">
-            {connected ? '🟢 Live' : '🔴 Disconnected'}
+          <div className="absolute top-2 left-2 z-10 flex gap-2">
+            <div className="bg-black/80 text-white px-3 py-1 rounded text-sm">
+              {connected ? '🟢 Live' : '🔴 Disconnected'}
+            </div>
+            {currentContext && (
+              <div className="bg-blue-900/80 text-white px-3 py-1 rounded text-sm">
+                {currentContext.stepCompleted}/{currentContext.totalSteps} - {currentContext.title}
+              </div>
+            )}
           </div>
         )}
         

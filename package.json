@@ -16,12 +16,16 @@
     "type-check": "turbo run type-check"
   },
   "devDependencies": {
-    "turbo": "^1.13.4",
     "prettier": "^3.1.0",
+    "turbo": "^1.13.4",
     "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "selfsigned": "^5.2.0",
+    "undici": "^7.16.0"
   }
 }

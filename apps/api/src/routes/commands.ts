@@ -1,12 +1,9 @@
 import { Router } from 'express';
-import { processCommand } from '../services/nlp';
 import { 
-  executeCommand, 
   createSession, 
   closeSession, 
-  getPageContext 
 } from '../services/automation';
-import { logMetric } from '../services/metrics';
+import { runNaturalLanguageCommand } from '../services/commandExecutor';
 import { v4 as uuidv4 } from 'uuid';
 
 export const commandRouter = Router();
@@ -77,19 +74,22 @@ export const commandRouter = Router();
 commandRouter.post('/session', async (req, res) => {
   try {
     const sessionId = uuidv4();
-    console.log(`📱 Creating new browser session: ${sessionId}`);
+    const injectOverlay = req.body?.injectOverlay === true;
+    console.log(`📱 Creating new browser session: ${sessionId}${injectOverlay ? ' (with overlay)' : ''}`);
     
-    const context = await createSession(sessionId);
+    const context = await createSession(sessionId, injectOverlay);
     
     console.log(`✅ Session created successfully`);
     console.log(`   - Session ID: ${sessionId}`);
     console.log(`   - Debug URL: ${context.debugUrl}`);
     console.log(`   - Page URL: ${context.url}`);
+    console.log(`   - Overlay: ${injectOverlay ? 'Enabled' : 'Disabled'}`);
     
     res.json({
       sessionId,
       context,
       success: true,
+      overlayEnabled: injectOverlay
     });
   } catch (error) {
     console.error('❌ Session creation error:', error);
@@ -132,64 +132,21 @@ commandRouter.post('/', async (req, res) => {
     if (sessionId) console.log(`   Session: ${sessionId}`);
     if (url) console.log(`   URL: ${url}`);
 
-    // Get page context if requested (for better NLP understanding)
-    let context;
-    if (useContext && sessionId) {
-      try {
-        context = await getPageContext(sessionId);
-        console.log(`   ✓ Page context retrieved`);
-      } catch (e) {
-        // Context is optional, continue without it
-        console.log(`   ⚠ Could not get page context`);
-      }
-    }
-
-    // Process natural language command
-    console.log(`   🤖 Processing with GPT-4...`);
-    const interpretation = await processCommand(command, url || '', context);
-    console.log(`   ✓ Interpreted as: ${interpretation.action}`);
-    if (interpretation.target) console.log(`   ✓ Target: ${interpretation.target}`);
-    if (interpretation.confidence) console.log(`   ✓ Confidence: ${(interpretation.confidence * 100).toFixed(0)}%`);
-
-    // Execute the command (if automation is enabled)
-    let result;
-    if (interpretation.executable) {
-      console.log(`   ⚡ Executing action...`);
-      result = await executeCommand(interpretation, sessionId);
-      console.log(`   ✅ Action completed successfully`);
-    } else {
-      console.log(`   ⚠ Command not executable`);
-    }
-
-    // Log metrics
-    await logMetric({
+    const payload = await runNaturalLanguageCommand({
       command,
       url,
       sessionId,
-      interpretation,
-      success: true,
-      timestamp: new Date(),
+      useContext,
     });
 
     res.json({
-      interpretation,
-      result,
+      ...payload,
       sessionId,
       success: true,
     });
   } catch (error) {
     console.error('❌ Command execution error:', (error as Error).message);
     console.error((error as Error).stack);
-    
-    // Log failed metric
-    await logMetric({
-      command: req.body.command,
-      url: req.body.url,
-      sessionId: req.body.sessionId,
-      success: false,
-      error: (error as Error).message,
-      timestamp: new Date(),
-    });
 
     res.status(500).json({
       error: 'Failed to execute command',

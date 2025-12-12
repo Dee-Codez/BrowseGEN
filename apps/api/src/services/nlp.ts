@@ -49,26 +49,40 @@ Current URL: "${url}"${contextInfo}
 
 Analyze the command and respond with a JSON object containing:
 - action: one of [click, fill, navigate, extract, scroll, wait, screenshot, select, hover, press, unknown]
-- target: description of the element to interact with
+- target: description of the element to interact with (plain text, e.g., "login button", "search box", "first result")
 - value: any value to input (for fill, select actions) or key to press
-- selector: CSS selector if inferrable (use text=, placeholder=, or aria-label= for text-based matching)
-- elementDescription: detailed description of what element to find (e.g., "blue button with text Submit")
+- selector: OPTIONAL CSS selector - only if you're certain. Valid formats:
+  * Text matching: use descriptive target instead of selector
+  * CSS attribute: [aria-label="text"], [placeholder="text"], button[type="submit"]
+  * Do NOT use: "aria-label=text" or "placeholder=text" (these are INVALID)
+- elementDescription: detailed description of what element to find
 - executable: boolean indicating if this can be automated
 - confidence: 0-1 score of interpretation confidence
 - reasoning: brief explanation of your interpretation
 - steps: array of sub-commands if this requires multiple steps (each with same structure)
 
+IMPORTANT: 
+- For clicks/fills, prefer descriptive "target" over "selector"
+- Use available elements from context when possible
+- Keep selectors simple or omit them - the system will find elements by target description
+
 Examples:
 - "click login" → {action: "click", target: "login", selector: "text=login", executable: true, confidence: 0.9}
 - "search for laptops" → {action: "fill", target: "search box", value: "laptops", selector: "[placeholder*=search], input[type=search]", executable: true, confidence: 0.85}
 - "go to google.com" → {action: "navigate", value: "https://google.com", executable: true, confidence: 1.0}
+- "go to amazon.com, search for headphones, click first result" → {executable: true, confidence: 0.9, steps: [{action: "navigate", value: "amazon.com"}, {action: "fill", target: "search", value: "headphones"}, {action: "click", target: "first result"}]}
+
+IMPORTANT: 
+- If the command contains multiple actions separated by commas, "and", "then", or semicolons, parse it as multi-step using the "steps" array. Each step should be a separate action.
+- When interpreting "search for X", use action "fill" with target "search" - do NOT add a separate step to click the search button, as submission is automatic.
+- Avoid redundant steps like "click search button" after a search action.
 
 Respond only with the JSON object, no additional text.
 `;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Free and fast model
-      messages: [
+      model: 'gpt-4o-mini',
+      messages: [ 
         {
           role: 'system',
           content: 'You are a precise web automation assistant. Always respond with valid JSON only.'

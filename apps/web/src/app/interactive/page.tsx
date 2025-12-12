@@ -9,12 +9,15 @@ export default function InteractiveBrowser() {
   const [debugUrl, setDebugUrl] = useState<string | null>(null);
   const [wsUrl, setWsUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [overlayEnabled, setOverlayEnabled] = useState(true);
 
   const createSession = async () => {
     setLoading(true);
     try {
       const response = await fetch('http://localhost:3001/api/commands/session', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ injectOverlay: overlayEnabled }),
       });
       const data = await response.json();
       
@@ -100,8 +103,20 @@ export default function InteractiveBrowser() {
                   <p className="text-sm text-gray-400">ID: {sessionId.substring(0, 8)}...</p>
                 </div>
               ) : (
-                <div>
-                  <span className="text-gray-400">No active session</span>
+                <div className="space-y-2">
+                  <span className="text-gray-400 block">No active session</span>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={overlayEnabled}
+                      onChange={(e) => setOverlayEnabled(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-gray-300">
+                      Enable command overlay in browser
+                      <span className="text-gray-500 text-xs ml-1">(type commands directly in browser window)</span>
+                    </span>
+                  </label>
                 </div>
               )}
             </div>
@@ -152,23 +167,43 @@ export default function InteractiveBrowser() {
                   <h3 className="text-sm font-semibold text-gray-400 mb-3">
                     Quick Commands
                   </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      'go to google.com',
-                      'search for AI',
-                      'go to github.com',
-                      'scroll down',
-                      'take a screenshot',
-                      'go to reddit.com'
-                    ].map((cmd) => (
-                      <button
-                        key={cmd}
-                        onClick={() => executeCommand(cmd)}
-                        className="text-left bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded text-sm transition-colors"
-                      >
-                        {cmd}
-                      </button>
-                    ))}
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 mb-2">Single commands:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        'go to google.com',
+                        'search for AI',
+                        'go to github.com',
+                        'scroll down',
+                        'take a screenshot',
+                        'go to reddit.com'
+                      ].map((cmd) => (
+                        <button
+                          key={cmd}
+                          onClick={() => executeCommand(cmd)}
+                          className="text-left px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 transition-colors"
+                        >
+                          {cmd}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    <p className="text-xs text-gray-500 mb-2 mt-4">Multi-step commands:</p>
+                    <div className="space-y-2">
+                      {[
+                        'go to google.com, search for AI, click first result',
+                        'go to github.com, search for playwright, click first repo',
+                        'go to amazon.com, search for headphones, scroll down'
+                      ].map((cmd) => (
+                        <button
+                          key={cmd}
+                          onClick={() => executeCommand(cmd)}
+                          className="text-left w-full px-3 py-2 bg-blue-900/30 hover:bg-blue-800/40 border border-blue-700/50 rounded text-sm text-blue-200 transition-colors"
+                        >
+                          {cmd}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
