@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 export interface MetricData {
   command: string;
   url?: string;
+  sessionId?: string;
   interpretation?: any;
   success: boolean;
   error?: string;

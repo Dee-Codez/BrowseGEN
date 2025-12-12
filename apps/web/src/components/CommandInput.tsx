@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 import { Send, Loader2 } from 'lucide-react';
-import axios from 'axios';
 
-export function CommandInput() {
+interface CommandInputProps {
+  onExecute?: (command: string) => Promise<any>;
+}
+
+export function CommandInput({ onExecute }: CommandInputProps) {
   const [command, setCommand] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -19,13 +22,13 @@ export function CommandInput() {
     setResult(null);
 
     try {
-      const response = await axios.post('/api/commands', {
-        command: command.trim(),
-        url: 'https://example.com', // Can be made dynamic
-      });
-      setResult(response.data);
+      if (onExecute) {
+        const response = await onExecute(command.trim());
+        setResult(response);
+      }
+      setCommand(''); // Clear input after execution
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to execute command');
+      setError(err.message || 'Failed to execute command');
     } finally {
       setLoading(false);
     }
