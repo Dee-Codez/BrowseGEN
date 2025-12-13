@@ -45,3 +45,31 @@ model Command {
   @@index([userId])
   @@index([createdAt])
 }
+
+model Session {
+  id          String   @id @default(uuid())
+  url         String?
+  debugUrl    String?
+  wsUrl       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  closedAt    DateTime?
+  
+  threads     Thread[]
+  
+  @@index([active])
+  @@index([createdAt])
+}
+
+model Thread {
+  id          String   @id @default(cuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type        String   @default("command") // "command", "log", "response"
+  content     String   @db.Text
+  metadata    Json?    // For storing additional data
+  createdAt   DateTime @default(now())
+  
+  @@index([sessionId])
+  @@index([createdAt])
+}

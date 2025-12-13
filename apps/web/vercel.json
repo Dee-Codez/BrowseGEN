@@ -1,6 +1,0 @@
-{
-  "buildProperties": {
-    "runtime": "node",
-    "runtimeVersion": "18.x"
-  }
-}

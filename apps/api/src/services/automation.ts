@@ -12,6 +12,13 @@ const activeSessions = new Map<string, { context: BrowserContext; page: Page; de
 
 const overlayInjectionScript = (sessionId: string, wsPort: number, wssPort: number) => {
   const globalWindow = globalThis as any;
+  
+  // Only inject overlay if not a popup window (check multiple conditions)
+  if (globalWindow.opener !== null || globalWindow.name === 'popup' || globalWindow.location !== globalWindow.parent.location) {
+    console.log('Skipping overlay injection: This is a popup or iframe');
+    return;
+  }
+  
   const overlayId = 'browsegen-overlay';
   const normalizePort = (port: number) => (Number.isFinite(port) ? port : 3001);
   const wsPortResolved = normalizePort(wsPort);
@@ -46,90 +53,188 @@ const overlayInjectionScript = (sessionId: string, wsPort: number, wssPort: numb
           bottom: 32px;
           right: 32px;
           width: 360px;
-          background: rgba(18, 18, 18, 0.92);
+          background: rgba(18, 18, 18, 0.95);
           color: #fff;
           border-radius: 18px;
           box-shadow: 0 25px 60px rgba(0,0,0,0.45);
           backdrop-filter: blur(18px);
           z-index: 999999;
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.12);
           overflow: hidden;
           font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #browsegen-overlay.minimized {
+          width: 220px;
+          height: auto;
+        }
+        #browsegen-overlay.minimized .browsegen-content {
+          display: none !important;
+          opacity: 0;
+          height: 0;
+          overflow: hidden;
+        }
+        #browsegen-overlay.minimized .browsegen-inner {
+          padding: 16px 20px;
         }
         #browsegen-overlay .browsegen-inner {
           display: flex;
           flex-direction: column;
-          gap: 10px;
-          padding: 22px;
+          gap: 12px;
+          padding: 20px;
+          transition: padding 0.3s ease;
         }
         #browsegen-overlay .browsegen-header {
           display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+        }
+        #browsegen-overlay .browsegen-header-left {
+          display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 4px;
+          flex: 1;
+          min-width: 0;
         }
         #browsegen-overlay .browsegen-title {
           font-weight: 700;
-          font-size: 18px;
+          font-size: 16px;
+          line-height: 1.2;
         }
         #browsegen-overlay .browsegen-subtitle {
-          font-size: 12px;
+          font-size: 11px;
           color: #a3a3a3;
+          line-height: 1.2;
+        }
+        #browsegen-minimize-btn {
+          background: rgba(255,255,255,0.1);
+          border: none;
+          color: #fff;
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          font-weight: 300;
+          line-height: 1;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+          user-select: none;
+        }
+        #browsegen-minimize-btn:hover {
+          background: rgba(255,255,255,0.2);
+          transform: scale(1.05);
+        }
+        #browsegen-minimize-btn:active {
+          transform: scale(0.95);
+        }
+        .browsegen-content {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          transition: all 0.3s ease;
         }
         #browsegen-input {
           width: 100%;
-          padding: 12px 14px;
+          padding: 12px 16px;
           font-size: 14px;
-          border-radius: 12px;
-          border: 1px solid rgba(255,255,255,0.2);
-          background: rgba(255,255,255,0.04);
+          border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.15);
+          background: rgba(255,255,255,0.06);
           color: #fff;
+          font-family: inherit;
+          transition: all 0.2s ease;
+          box-sizing: border-box;
+        }
+        #browsegen-input::placeholder {
+          color: rgba(255,255,255,0.4);
         }
         #browsegen-input:focus {
           outline: none;
-          border-color: #8efbd9;
-          box-shadow: 0 0 0 2px rgba(142, 251, 217, 0.3);
+          border-color: #45f0b2;
+          background: rgba(255,255,255,0.08);
+          box-shadow: 0 0 0 3px rgba(69, 240, 178, 0.15);
         }
         #browsegen-submit {
           width: 100%;
-          padding: 10px;
-          border-radius: 12px;
+          padding: 12px 16px;
+          border-radius: 10px;
           border: none;
-          background: linear-gradient(135deg, #45f0b2, #1c9bdc);
-          color: #071b2d;
+          background: linear-gradient(135deg, #45f0b2 0%, #1c9bdc 100%);
+          color: #0a1628;
           font-weight: 600;
+          font-size: 13px;
           cursor: pointer;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.5px;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+        #browsegen-submit:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(69, 240, 178, 0.3);
+        }
+        #browsegen-submit:active {
+          transform: translateY(0);
         }
         #browsegen-submit:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+          transform: none;
         }
         #browsegen-status, .browsegen-status {
           min-height: 24px;
-          font-size: 13px;
+          font-size: 12px;
           border-radius: 8px;
-          padding: 6px 10px;
+          padding: 8px 12px;
           background: rgba(255,255,255,0.08);
           color: #fff;
-          transition: background 0.18s ease;
+          transition: all 0.2s ease;
+          text-align: center;
+          line-height: 1.4;
         }
         #browsegen-status.info { background: rgba(255,255,255,0.08); }
-        #browsegen-status.success { background: #1a876b; }
-        #browsegen-status.error { background: #d23f4d; }
-        #browsegen-status.executing { background: #3258ff; }
+        #browsegen-status.success { background: rgba(69, 240, 178, 0.2); color: #45f0b2; }
+        #browsegen-status.error { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        #browsegen-status.executing { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
       </style>
       <div class="browsegen-inner">
         <div class="browsegen-header">
-          <span class="browsegen-title">BrowseGEN AI</span>
-          <span class="browsegen-subtitle">Session ${sessionId.substring(0, 8)}...</span>
+          <div class="browsegen-header-left">
+            <span class="browsegen-title">BrowseGEN AI</span>
+            <span class="browsegen-subtitle">Session ${sessionId.substring(0, 8)}...</span>
+          </div>
+          <button id="browsegen-minimize-btn" title="Minimize">−</button>
         </div>
-        <input id="browsegen-input" type="text" placeholder="Type a command" autocomplete="off" />
-        <button id="browsegen-submit">Submit</button>
-        <div id="browsegen-status" class="browsegen-status info">Waiting for commands...</div>
+        <div class="browsegen-content">
+          <input id="browsegen-input" type="text" placeholder="Type a command" autocomplete="off" />
+          <button id="browsegen-submit">Submit</button>
+          <div id="browsegen-status" class="browsegen-status info">Waiting for commands...</div>
+        </div>
       </div>
     `;
     doc.body.appendChild(overlay);
+    
+    const minimizeBtn: any = overlay.querySelector('#browsegen-minimize-btn');
+    let isMinimized = false;
+    
+    minimizeBtn?.addEventListener('click', () => {
+      isMinimized = !isMinimized;
+      if (isMinimized) {
+        overlay.classList.add('minimized');
+        minimizeBtn.textContent = '+';
+        minimizeBtn.title = 'Maximize';
+      } else {
+        overlay.classList.remove('minimized');
+        minimizeBtn.textContent = '−';
+        minimizeBtn.title = 'Minimize';
+      }
+    });
+    
     const inputEl: any = overlay.querySelector('#browsegen-input');
     const buttonEl: any = overlay.querySelector('#browsegen-submit');
     const statusEl: any = overlay.querySelector('#browsegen-status');
@@ -156,9 +261,9 @@ const overlayInjectionScript = (sessionId: string, wsPort: number, wssPort: numb
         return;
       }
       ws = new WebSocket(url);
-      setStatus('Connecting to automation...', 'info');
+      setStatus('Connecting to websocket...', 'info');
       ws.addEventListener('open', () => {
-        setStatus('Connected to automation', 'success');
+        setStatus('Connected to websocket', 'success');
         ws?.send(JSON.stringify({ type: 'subscribe', sessionId }));
       });
       ws.addEventListener('message', (event) => {
@@ -248,8 +353,29 @@ async function injectOverlayNow(page: Page, sessionId: string, wsPort: number, w
 }
 
 async function getBrowser(): Promise<Browser> {
+  let needsRestart = false;
   if (!browser) {
-    browser = await chromium.launch({ 
+    needsRestart = true;
+  } else {
+    // Playwright Browser has isConnected(), but fallback to try/catch if not available
+    try {
+      if (typeof browser.isConnected === 'function') {
+        if (!browser.isConnected()) {
+          needsRestart = true;
+        }
+      } else {
+        // Try a simple operation to check if browser is alive
+        await browser.version();
+      }
+    } catch {
+      needsRestart = true;
+    }
+  }
+  if (needsRestart) {
+    if (browser) {
+      try { await browser.close(); } catch {}
+    }
+    browser = await chromium.launch({
       headless: false, // Always run in headed mode for streaming
       args: [
         '--no-sandbox',

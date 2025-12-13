@@ -170,6 +170,15 @@ class WebSocketService {
     });
   }
 
+  sendThreadUpdate(sessionId: string, thread: any) {
+    this.broadcast(sessionId, {
+      type: 'thread',
+      sessionId,
+      timestamp: new Date().toISOString(),
+      data: thread
+    });
+  }
+
   private async handleIncomingCommand(sessionId: string, command: string): Promise<void> {
     try {
       this.sendLog(sessionId, `Overlay command received: ${command}`);
