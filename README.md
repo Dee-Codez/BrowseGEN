@@ -1,6 +1,6 @@
-# NaturalWeb - Natural Language Website Interaction Platform
+# BrowseGEN - Natural Language Website Interaction Platform
 
-![NaturalWeb](https://img.shields.io/badge/version-1.0.0-blue)
+![BrowseGEN](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Interact with websites using natural language commands through a web application and browser extension
