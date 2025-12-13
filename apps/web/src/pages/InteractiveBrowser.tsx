@@ -232,26 +232,13 @@ export default function InteractiveBrowser() {
       const response = await fetch('http://localhost:3001/api/commands/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ injectOverlay: true }),
+        body: JSON.stringify({ injectOverlay: true, initialUrl: submittedUrl }),
       });
       const data = await response.json();
       
       if (data.success) {
         setSessionId(data.sessionId);
         setUrl(submittedUrl);
-        
-        // Navigate to URL
-        setTimeout(async () => {
-          await fetch('http://localhost:3001/api/commands', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              command: `go to ${submittedUrl}`,
-              sessionId: data.sessionId,
-              useContext: true,
-            }),
-          });
-        }, 500);
       }
     } catch (error) {
       console.error('Failed to create session:', error);

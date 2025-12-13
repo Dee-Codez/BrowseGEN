@@ -40,13 +40,19 @@ const overlayInjectionScript = ({ sessionId, wsPort, wssPort }: { sessionId: str
 
   const createOverlay = () => {
     const doc = globalWindow.document;
-    if (!doc || doc.getElementById(overlayId)) {
+    if (!doc) {
       return;
     }
-    ensureBody();
-    const overlay = doc.createElement('div');
-    overlay.id = overlayId;
-    overlay.innerHTML = `
+    
+    // Check if overlay exists and reinitialize if needed
+    let overlay = doc.getElementById(overlayId) as HTMLElement;
+    const overlayExists = !!overlay;
+    
+    if (!overlayExists) {
+      ensureBody();
+      overlay = doc.createElement('div');
+      overlay.id = overlayId;
+      overlay.innerHTML = `
       <style>
         #browsegen-overlay {
           position: fixed;
@@ -186,6 +192,44 @@ const overlayInjectionScript = ({ sessionId, wsPort, wssPort }: { sessionId: str
           cursor: not-allowed;
           transform: none;
         }
+        .browsegen-input-wrapper {
+          position: relative;
+          display: flex;
+          gap: 8px;
+        }
+        .browsegen-input-wrapper input {
+          flex: 1;
+        }
+        #browsegen-voice-btn {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: transparent;
+          border: none;
+          color: rgba(255,255,255,0.6);
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 6px;
+          transition: all 0.2s ease;
+          width: 28px;
+          height: 28px;
+        }
+        #browsegen-voice-btn:hover {
+          background: rgba(255,255,255,0.1);
+          color: #fff;
+        }
+        #browsegen-voice-btn.recording {
+          color: #ef4444;
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
         #browsegen-status, .browsegen-status {
           min-height: 24px;
           font-size: 12px;
@@ -211,33 +255,75 @@ const overlayInjectionScript = ({ sessionId, wsPort, wssPort }: { sessionId: str
           <button id="browsegen-minimize-btn" title="Minimize">−</button>
         </div>
         <div class="browsegen-content">
-          <input id="browsegen-input" type="text" placeholder="Type a command" autocomplete="off" />
+          <div class="browsegen-input-wrapper">
+            <input id="browsegen-input" type="text" placeholder="Type or speak a command" autocomplete="off" />
+            <button id="browsegen-voice-btn" title="Voice input (click to speak)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="22"></line>
+              </svg>
+            </button>
+          </div>
           <button id="browsegen-submit">Submit</button>
           <div id="browsegen-status" class="browsegen-status info">Waiting for commands...</div>
         </div>
       </div>
     `;
-    doc.body.appendChild(overlay);
+      doc.body.appendChild(overlay);
+    }
     
+    // Always reinitialize event handlers and voice recognition (even if overlay exists)
     const minimizeBtn: any = overlay.querySelector('#browsegen-minimize-btn');
-    let isMinimized = false;
+    let isMinimized = overlay.classList.contains('minimized');
     
-    minimizeBtn?.addEventListener('click', () => {
+    // Only clone/replace elements if overlay was just created (not on reinitialization)
+    let finalMinimizeBtn = minimizeBtn;
+    let finalInputEl: any = overlay.querySelector('#browsegen-input');
+    let finalButtonEl: any = overlay.querySelector('#browsegen-submit');
+    let finalVoiceBtn: any = overlay.querySelector('#browsegen-voice-btn');
+    
+    if (!overlayExists) {
+      // Fresh overlay - clone elements to remove any old event listeners
+      const newMinimizeBtn = minimizeBtn?.cloneNode(true);
+      if (minimizeBtn && newMinimizeBtn) {
+        minimizeBtn.parentNode?.replaceChild(newMinimizeBtn, minimizeBtn);
+        finalMinimizeBtn = newMinimizeBtn;
+      }
+      
+      const newInputEl = finalInputEl?.cloneNode(true);
+      const newButtonEl = finalButtonEl?.cloneNode(true);
+      const newVoiceBtn = finalVoiceBtn?.cloneNode(true);
+      
+      if (finalInputEl && newInputEl) {
+        finalInputEl.parentNode?.replaceChild(newInputEl, finalInputEl);
+        finalInputEl = newInputEl;
+      }
+      if (finalButtonEl && newButtonEl) {
+        finalButtonEl.parentNode?.replaceChild(newButtonEl, finalButtonEl);
+        finalButtonEl = newButtonEl;
+      }
+      if (finalVoiceBtn && newVoiceBtn) {
+        finalVoiceBtn.parentNode?.replaceChild(newVoiceBtn, finalVoiceBtn);
+        finalVoiceBtn = newVoiceBtn;
+      }
+    }
+    
+    finalMinimizeBtn?.addEventListener('click', () => {
       isMinimized = !isMinimized;
       if (isMinimized) {
         overlay.classList.add('minimized');
-        minimizeBtn.textContent = '+';
-        minimizeBtn.title = 'Maximize';
+        finalMinimizeBtn.textContent = '+';
+        finalMinimizeBtn.title = 'Maximize';
       } else {
         overlay.classList.remove('minimized');
-        minimizeBtn.textContent = '−';
-        minimizeBtn.title = 'Minimize';
+        finalMinimizeBtn.textContent = '−';
+        finalMinimizeBtn.title = 'Minimize';
       }
     });
     
-    const inputEl: any = overlay.querySelector('#browsegen-input');
-    const buttonEl: any = overlay.querySelector('#browsegen-submit');
     const statusEl: any = overlay.querySelector('#browsegen-status');
+    
     const setStatus = (text: string, type: 'info' | 'success' | 'error' | 'executing' = 'info') => {
       if (!statusEl) return;
       statusEl.textContent = text;
@@ -245,6 +331,55 @@ const overlayInjectionScript = ({ sessionId, wsPort, wssPort }: { sessionId: str
     };
     let ws: WebSocket | null = null;
     let reconnectHandle: number | null = null;
+    
+    // Voice recognition setup
+    const SpeechRecognition = (globalWindow as any).SpeechRecognition || (globalWindow as any).webkitSpeechRecognition;
+    let recognition: any = null;
+    let isRecording = false;
+    
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      
+      recognition.onstart = () => {
+        isRecording = true;
+        finalVoiceBtn?.classList.add('recording');
+        setStatus('🎤 Listening...', 'info');
+      };
+      
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (finalInputEl) {
+          finalInputEl.value = transcript;
+          finalInputEl.focus();
+        }
+        setStatus(`Heard: "${transcript}"`, 'success');
+      };
+      
+      recognition.onerror = (event: any) => {
+        isRecording = false;
+        finalVoiceBtn?.classList.remove('recording');
+        if (event.error === 'no-speech') {
+          setStatus('No speech detected. Try again.', 'error');
+        } else if (event.error === 'not-allowed') {
+          setStatus('Microphone access denied', 'error');
+        } else {
+          setStatus(`Voice error: ${event.error}`, 'error');
+        }
+      };
+      
+      recognition.onend = () => {
+        isRecording = false;
+        finalVoiceBtn?.classList.remove('recording');
+      };
+    } else {
+      // Hide voice button if not supported
+      if (finalVoiceBtn) {
+        finalVoiceBtn.style.display = 'none';
+      }
+    }
 
     const scheduleReconnect = () => {
       if (reconnectHandle !== null) return;
@@ -296,12 +431,12 @@ const overlayInjectionScript = ({ sessionId, wsPort, wssPort }: { sessionId: str
         ws?.close();
       });
     };
-
+    
     const sendCommand = () => {
-      if (!inputEl || !buttonEl || !statusEl) {
+      if (!finalInputEl || !finalButtonEl || !statusEl) {
         return;
       }
-      const text = inputEl.value.trim();
+      const text = finalInputEl.value.trim();
       if (!text) {
         setStatus('Please type a command', 'error');
         return;
@@ -311,19 +446,104 @@ const overlayInjectionScript = ({ sessionId, wsPort, wssPort }: { sessionId: str
         reconnectHandle === null && scheduleReconnect();
         return;
       }
-      inputEl.value = '';
+      finalInputEl.value = '';
       setStatus(`Sending: ${text}`, 'executing');
       ws.send(JSON.stringify({ type: 'command', sessionId, command: text }));
     };
 
-    buttonEl?.addEventListener('click', sendCommand);
-    inputEl?.addEventListener('keydown', (event: any) => {
+    finalButtonEl?.addEventListener('click', sendCommand);
+    finalInputEl?.addEventListener('keydown', (event: any) => {
       if (event.key === 'Enter') {
         event.preventDefault();
         sendCommand();
       }
     });
-    inputEl?.focus();
+    
+    // Voice button click handler
+    const handleVoiceClick = () => {
+      if (!SpeechRecognition) {
+        setStatus('Voice input not supported in this browser', 'error');
+        return;
+      }
+      
+      // Recreate recognition if it doesn't exist or is in a bad state
+      if (!recognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+        
+        recognition.onstart = () => {
+          isRecording = true;
+          const btn = globalWindow.document?.querySelector('#browsegen-voice-btn');
+          btn?.classList.add('recording');
+          setStatus('🎤 Listening...', 'info');
+        };
+        
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          const input = globalWindow.document?.querySelector('#browsegen-input') as any;
+          if (input) {
+            input.value = transcript;
+            input.focus();
+          }
+          setStatus(`Heard: "${transcript}"`, 'success');
+        };
+        
+        recognition.onerror = (event: any) => {
+          isRecording = false;
+          const btn = globalWindow.document?.querySelector('#browsegen-voice-btn');
+          btn?.classList.remove('recording');
+          if (event.error === 'no-speech') {
+            setStatus('No speech detected. Try again.', 'error');
+          } else if (event.error === 'not-allowed') {
+            setStatus('Microphone access denied', 'error');
+          } else {
+            setStatus(`Voice error: ${event.error}`, 'error');
+          }
+        };
+        
+        recognition.onend = () => {
+          isRecording = false;
+          const btn = globalWindow.document?.querySelector('#browsegen-voice-btn');
+          btn?.classList.remove('recording');
+        };
+      }
+      
+      if (isRecording) {
+        try {
+          recognition.stop();
+        } catch (e) {
+          isRecording = false;
+        }
+      } else {
+        try {
+          recognition.start();
+        } catch (error) {
+          globalWindow.console.error('Voice recognition error:', error);
+          setStatus('Failed to start voice input', 'error');
+          // Reset recognition on error
+          recognition = null;
+        }
+      }
+    };
+    
+    finalVoiceBtn?.addEventListener('click', handleVoiceClick);
+    
+    // Use event delegation on the overlay for reliability after page changes
+    // Only add this once if overlay is newly created
+    if (!overlayExists) {
+      overlay.addEventListener('click', (e: any) => {
+        const target = e.target as HTMLElement;
+        if (target.id === 'browsegen-voice-btn' || target.closest('#browsegen-voice-btn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleVoiceClick();
+        }
+      });
+    }
+    
+    finalInputEl?.focus();
     connectWebSocket();
   };
 
@@ -393,7 +613,7 @@ async function getBrowser(): Promise<Browser> {
   return browser;
 }
 
-export async function createSession(sessionId: string, injectOverlay: boolean = false): Promise<PageContext & { debugUrl: string; wsUrl: string }> {
+export async function createSession(sessionId: string, injectOverlay: boolean = false, initialUrl?: string): Promise<PageContext & { debugUrl: string; wsUrl: string }> {
   const browser = await getBrowser();
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
@@ -401,14 +621,25 @@ export async function createSession(sessionId: string, injectOverlay: boolean = 
   });
   const page = await context.newPage();
   
-  await page.goto('data:text/html,<!DOCTYPE html><html><head><title>BrowseGEN</title></head><body></body></html>');
+  // Inject overlay script before navigation if needed
+  if (injectOverlay) {
+    console.log('📋 Adding overlay init script...');
+    await page.addInitScript(overlayInjectionScript, { sessionId, wsPort: HTTP_PORT, wssPort: SECURE_WS_PORT });
+  }
+  
+  // Navigate to initial URL if provided, otherwise start with blank page
+  if (initialUrl) {
+    let formattedUrl = initialUrl.trim();
+    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+    await page.goto(formattedUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  } else {
+    await page.goto('data:text/html,<!DOCTYPE html><html><head><title>BrowseGEN</title></head><body></body></html>');
+  }
+  
+  // Set viewport size for better viewing
   await page.setViewportSize({ width: 1280, height: 780 });
-  await page.evaluate(() => {
-    document.documentElement.style.height = '100%';
-    document.body.style.height = '100%';
-    document.body.style.minHeight = '100vh';
-    document.body.style.margin = '0';
-  });
   
   // Get CDP session for this page
   const cdpSession = await page.context().newCDPSession(page);
@@ -423,8 +654,6 @@ export async function createSession(sessionId: string, injectOverlay: boolean = 
   
   console.log(`🎨 createSession called with injectOverlay=${injectOverlay}`);
   if (injectOverlay) {
-    console.log('📋 Injecting overlay...');
-    await page.addInitScript(overlayInjectionScript, { sessionId, wsPort: HTTP_PORT, wssPort: SECURE_WS_PORT });
     console.log('🚀 Running immediate overlay injection...');
     await injectOverlayNow(page, sessionId, HTTP_PORT, SECURE_WS_PORT);
     console.log('✅ Overlay injected');

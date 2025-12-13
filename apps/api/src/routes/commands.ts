@@ -80,9 +80,10 @@ commandRouter.post('/session', async (req, res) => {
   try {
     const sessionId = uuidv4();
     const injectOverlay = req.body?.injectOverlay === true;
-    console.log(`📱 Creating new browser session: ${sessionId}${injectOverlay ? ' (with overlay)' : ''}`);
+    const initialUrl = req.body?.initialUrl as string | undefined;
+    console.log(`📱 Creating new browser session: ${sessionId}${injectOverlay ? ' (with overlay)' : ''}${initialUrl ? ` -> ${initialUrl}` : ''}`);
     
-    const context = await createSession(sessionId, injectOverlay);
+    const context = await createSession(sessionId, injectOverlay, initialUrl);
     
     // Create session in database
     await prisma.session.create({
