@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: 'ollama', // dummy key, not used by Ollama
+  baseURL: 'http://localhost:11434/v1',
 });
 
 export interface CommandInterpretation {
@@ -81,8 +82,8 @@ Respond only with the JSON object, no additional text.
 `;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [ 
+      model: 'mistral:7b',
+      messages: [
         {
           role: 'system',
           content: 'You are a precise web automation assistant. Always respond with valid JSON only.'
@@ -95,12 +96,12 @@ Respond only with the JSON object, no additional text.
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
-      throw new Error('No response from OpenAI');
+      throw new Error('No response from local LLM');
     }
 
     return JSON.parse(content) as CommandInterpretation;
   } catch (error) {
-    console.error('NLP processing error:', error);
+    console.error('NLP processing error (Local LLM):', error);
     // Fallback to simple parsing
     return parseCommandFallback(command);
   }
