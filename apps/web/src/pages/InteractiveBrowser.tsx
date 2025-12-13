@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Globe, ArrowRight, Sparkles, Zap, MessageSquare, ExternalLink, X } from 'lucide-react';
+import { Globe, ArrowRight, Sparkles, Zap, MessageSquare, ExternalLink, X, Loader2 } from 'lucide-react';
 import { HeroSection } from '../components/HeroSection';
 
 interface Thread {
@@ -21,7 +21,11 @@ interface BrowserControlProps {
 }
 
 const BrowserControl = ({ sessionId, url, threads, onClose }: BrowserControlProps) => {
+  const [commandLoading, setCommandLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const executeCommand = async (command: string) => {
+    setCommandLoading(true);
     try {
       const response = await fetch('http://localhost:3001/api/commands', {
         method: 'POST',
@@ -36,6 +40,8 @@ const BrowserControl = ({ sessionId, url, threads, onClose }: BrowserControlProp
     } catch (error) {
       console.error('Failed to execute command:', error);
       throw error;
+    } finally {
+      setCommandLoading(false);
     }
   };
 
@@ -127,20 +133,29 @@ const BrowserControl = ({ sessionId, url, threads, onClose }: BrowserControlProp
 
       {/* Command Input */}
       <div className="p-4 border-t border-gray-700">
-        <input
-          type="text"
-          placeholder="Type a command..."
-          className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-colors"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const value = e.currentTarget.value;
-              if (value.trim()) {
-                executeCommand(value);
-                e.currentTarget.value = '';
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder={commandLoading ? "Processing..." : "Type a command..."}
+            disabled={commandLoading}
+            className="w-full px-4 py-3 pr-12 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !commandLoading) {
+                const value = e.currentTarget.value;
+                if (value.trim()) {
+                  executeCommand(value);
+                  e.currentTarget.value = '';
+                }
               }
-            }
-          }}
-        />
+            }}
+          />
+          {commandLoading && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <Loader2 className="w-5 h-5 text-cyan-500 animate-spin" />
+            </div>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -276,7 +291,7 @@ export default function InteractiveBrowser() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <HeroSection onSubmit={handleUrlSubmit} />
+            <HeroSection onSubmit={handleUrlSubmit} isLoading={loading} />
           </motion.div>
         ) : (
           <motion.div

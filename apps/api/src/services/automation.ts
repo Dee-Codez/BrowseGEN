@@ -205,7 +205,7 @@ const overlayInjectionScript = ({ sessionId, wsPort, wssPort }: { sessionId: str
       <div class="browsegen-inner">
         <div class="browsegen-header">
           <div class="browsegen-header-left">
-            <span class="browsegen-title">BrowseGEN AI</span>
+            <span class="browsegen-title">BrowseGEN</span>
             <span class="browsegen-subtitle">Session ${sessionId.substring(0, 8)}...</span>
           </div>
           <button id="browsegen-minimize-btn" title="Minimize">−</button>

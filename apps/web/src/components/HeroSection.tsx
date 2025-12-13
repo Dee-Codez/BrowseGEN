@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Globe, ArrowRight, Sparkles, Zap, MessageSquare } from "lucide-react";
+import { Globe, ArrowRight, Sparkles, Zap, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface HeroSectionProps {
   onSubmit: (url: string) => void;
+  isLoading?: boolean;
 }
 
-export const HeroSection = ({ onSubmit }: HeroSectionProps) => {
+export const HeroSection = ({ onSubmit, isLoading = false }: HeroSectionProps) => {
   const [url, setUrl] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (url.trim()) {
+    if (url.trim() && !isLoading) {
       let formattedUrl = url.trim();
       if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
         formattedUrl = `https://${formattedUrl}`;
@@ -81,9 +82,24 @@ export const HeroSection = ({ onSubmit }: HeroSectionProps) => {
               className="pl-12 h-14 text-base bg-secondary/50 border-border/50 focus:border-primary glow-effect"
             />
           </div>
-          <Button type="submit" variant="hero" size="xl" className="group">
-            Start Chat
-            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+          <Button 
+            type="submit" 
+            variant="hero" 
+            size="xl" 
+            className="group"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                Connecting...
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </>
+            ) : (
+              <>
+                Start Chat
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </>
+            )}
           </Button>
         </motion.form>
 
