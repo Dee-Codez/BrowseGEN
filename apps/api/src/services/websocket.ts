@@ -5,7 +5,7 @@ import selfsigned from 'selfsigned';
 import { fetch } from 'undici';
 
 export interface ActionEvent {
-  type: 'action' | 'screenshot' | 'log' | 'complete' | 'error';
+  type: 'action' | 'screenshot' | 'log' | 'complete' | 'error' | 'context-update' | 'thread';
   sessionId: string;
   timestamp: string;
   data: any;
@@ -34,7 +34,7 @@ class WebSocketService {
 
   private startSecureServer() {
     const attrs = [{ name: 'commonName', value: 'localhost' }];
-    const pems = selfsigned.generate(attrs, { days: 365 });
+    const pems = selfsigned.generate(attrs, { keySize: 2048 }) as any;
     this.httpsServer = https.createServer({ key: pems.private, cert: pems.cert });
     this.attachServer(this.httpsServer);
     this.httpsServer.listen(this.securePort, () => {

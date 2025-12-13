@@ -10,7 +10,7 @@ const HTTP_PORT = parseInt(process.env.PORT || '3001', 10);
 const SECURE_WS_PORT = parseInt(process.env.WS_SECURE_PORT || '3443', 10);
 const activeSessions = new Map<string, { context: BrowserContext; page: Page; debugUrl?: string }>();
 
-const overlayInjectionScript = (sessionId: string, wsPort: number, wssPort: number) => {
+const overlayInjectionScript = ({ sessionId, wsPort, wssPort }: { sessionId: string; wsPort: number; wssPort: number }) => {
   const globalWindow = globalThis as any;
   
   // Only inject overlay if not a popup window (check multiple conditions)
@@ -345,7 +345,7 @@ async function injectOverlayNow(page: Page, sessionId: string, wsPort: number, w
   console.log(`💉 injectOverlayNow called for session ${sessionId}`);
   try {
     await page.waitForSelector('body', { timeout: 3000 }).catch(() => {});
-    await page.evaluate(overlayInjectionScript, sessionId, wsPort, wssPort);
+    await page.evaluate(overlayInjectionScript, { sessionId, wsPort, wssPort });
     console.log('✅ Overlay injection ensured');
   } catch (error) {
     console.error('❌ Failed to inject overlay:', error);
@@ -387,6 +387,9 @@ async function getBrowser(): Promise<Browser> {
       ]
     });
   }
+  if (!browser) {
+    throw new Error('Failed to initialize browser');
+  }
   return browser;
 }
 
@@ -421,7 +424,7 @@ export async function createSession(sessionId: string, injectOverlay: boolean = 
   console.log(`🎨 createSession called with injectOverlay=${injectOverlay}`);
   if (injectOverlay) {
     console.log('📋 Injecting overlay...');
-    await page.addInitScript(overlayInjectionScript, sessionId, HTTP_PORT, SECURE_WS_PORT);
+    await page.addInitScript(overlayInjectionScript, { sessionId, wsPort: HTTP_PORT, wssPort: SECURE_WS_PORT });
     console.log('🚀 Running immediate overlay injection...');
     await injectOverlayNow(page, sessionId, HTTP_PORT, SECURE_WS_PORT);
     console.log('✅ Overlay injected');
